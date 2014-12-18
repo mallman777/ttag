@@ -36,7 +36,7 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 #include <boost/program_options.hpp>
 	namespace po = boost::program_options;
 
-#include "CTimeTag.h"	//Include the UQD library
+#include "./CTimeTag/Include/CTimeTag.h"	//Include the UQD library
 #include "ttag.h"		//Includes the timetagger buffer
 	using namespace TimeTag;
 
@@ -83,6 +83,9 @@ int main(int argc, char** argv) {
 	float channelvoltage[16];	//The threshold voltage for each channel
 	bool channeledge[16];		//The edge to trigger each channel: true=rising, false=falling
 	int ledbrightness;			//The LED brightness
+    bool useEdgeGate = false;
+    int delay = 0;
+    int gateDuration = 1000;
 	//These are command-line only options
     po::options_description genopt("Generic Options");
 	genopt.add_options()
@@ -235,6 +238,18 @@ int main(int argc, char** argv) {
 			}
 			cout << "> Setting Reference value" << endl;
 			tagger.Use10MHz(reference);
+
+			cout << "> Using Edge Gate" << endl;
+			tagger.UseTimetagGate(useEdgeGate);
+ 
+			cout << "> Set Gate Delay" << endl;
+			tagger.SetDelay(8, delay);
+
+			cout << "> Set Gate Delay" << endl;
+			tagger.SetDelay(1, delay);
+
+			cout << "> Setting Gate Duration" << endl;
+			tagger.SetGatingTime(gateDuration);
 
 			cout << "> Setting Edge Values" << endl;
 			int mask = 0;
