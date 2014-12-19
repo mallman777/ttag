@@ -395,6 +395,9 @@ libttag.tt_coincidences.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctype
 libttag.tt_coincidences_nd.restype = ctypes.POINTER(ctypes.c_ulonglong)
 libttag.tt_coincidences_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong)]
 
+libttag.tt_coincidencetimes_nd.restype = ctypes.POINTER(ctypes.c_ulonglong)
+libttag.tt_coincidencetimes_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_ubyte]
+
 libttag.tt_multicoincidences.restype = ctypes.c_ulonglong
 libttag.tt_multicoincidences.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ubyte),
                                 ctypes.c_int,ctypes.POINTER(ctypes.c_double)]
@@ -621,7 +624,7 @@ class TTBuffer(object):
         libttag.tt_singles(self.tt_buf,time,s.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)))
         return s
     
-    def coincidences(self,time,radius,delays=None):
+    def coincidences(self,time,radius,delays=None,heraldChan = None):
         coincidenceMatrix = numpy.zeros((self.channels,self.channels),dtype=numpy.uint64)
         if (delays!=None):
             if not (isinstance(delays,numpy.ndarray)):
@@ -634,6 +637,10 @@ class TTBuffer(object):
                 delays=d
             libttag.tt_coincidences(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)),
                                     delays.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
+        elif (heraldChan!=None):
+            if (heraldChan >= self.channels):
+                raise ValueError("Herald channel bigger than total channels")
+            libttag.tt_coincidencetimes_nd(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)), heraldChan)
         else:
             #If there are no delays, run the nd version of tt_coincidences, which will probably be quite a bit faster
             libttag.tt_coincidences_nd(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)))

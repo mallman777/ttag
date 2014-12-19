@@ -24,10 +24,10 @@ void IdTest(CTimeTag &timetag)
     long long count = 0;
     bool reference = false;
     int ledbrightness = 100;
-    int delay = 0;
+    int delay = 70;
     double res = timetag.GetResolution();
     int sizeLast = 0;
-    bool useEdgeGate = true;
+    bool useEdgeGate = false;
     int gateDuration = 1000;
 
     cout << "> FPGA: " << timetag.GetFpgaVersion() << " Channels: " << timetag.GetNoInputs() << " Resolution: " << timetag.GetResolution() << endl;
@@ -48,8 +48,8 @@ void IdTest(CTimeTag &timetag)
     cout << "> Setting Reference value" << endl;
     timetag.Use10MHz(reference);
 
-    cout << "> Set Ch8 Delay" << endl;
-    timetag.SetDelay(8, delay);
+//    cout << "> Set Ch8 Delay" << endl;
+//    timetag.SetDelay(8, delay);
 
     cout << "> Set Ch1 Delay" << endl;
     timetag.SetDelay(1, delay);
@@ -79,10 +79,8 @@ void IdTest(CTimeTag &timetag)
         cout << time[i]*res*1e9 << " ";
     }
     cout << endl;
-
     cout << "Last time(ns): " << time[sizeLast-1]*res*1e9 << endl;
     cout << "Last Chan: " << (int)chan[sizeLast-1] << endl;
-
 }
 
 void SimpleTest(CTimeTag &timetag)

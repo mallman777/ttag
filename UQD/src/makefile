@@ -9,7 +9,7 @@ CppDemo64_msa: CppDemo_msa.cpp  makefile ./CTimeTag/Include/*.h ./CTimeTag/Linux
 UQDinterface: uqd.cpp  makefile ./CTimeTag/Include/*.h ./CTimeTag/Linux/libtimetag64.so
 	g++  -m64 buffer.c uqd.cpp -oUQDinterface -lpthread -lstdc++ -ICTimeTagLib -L../CTimeTag/Linux -lusb-1.0 -ltimetag64 -lm -lrt -lboost_program_options -lboost_thread 
 
-start64: CppDemo64_msa
+start64: UQDinterface
 #	sudo ./UQDinterface
 	
 oldstart:

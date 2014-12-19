@@ -242,8 +242,8 @@ int main(int argc, char** argv) {
 			cout << "> Using Edge Gate" << endl;
 			tagger.UseTimetagGate(useEdgeGate);
  
-			cout << "> Set Gate Delay" << endl;
-			tagger.SetDelay(8, delay);
+//			cout << "> Set Gate Delay" << endl;
+//			tagger.SetDelay(8, delay);
 
 			cout << "> Set Gate Delay" << endl;
 			tagger.SetDelay(1, delay);

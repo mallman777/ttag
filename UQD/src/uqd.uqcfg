@@ -3,13 +3,13 @@
 #cXv=Channel X threshold voltage
 #cXe=Channel X edge (1=rising,0=falling)
 
-c1v=0.45
+c1v=0.2
 c1e=1
 
-c2v=0.45
+c2v=0.2
 c2e=1
 
-c3v=0.45
+c3v=0.2
 c3e=1
 
 c4v=0.45
