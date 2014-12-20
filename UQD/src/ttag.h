@@ -751,6 +751,10 @@ TT_DEF_ uint64_t* tt_rawcoincidences(const tt_buf *const buffer, uint64_t timebi
 TT_DEF_ uint64_t* tt_coincidences_nd(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix);
 TT_DEF_ uint64_t* tt_rawcoincidences_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex);
 
+//Simplified (faster) versions without delay handling (nd=nodelay) and only coincidences on a herald photon on channel heraldChan
+TT_DEF_ uint64_t* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan);
+TT_DEF_ uint64_t* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan);
+
 /*
 tt_multicoincidences: Given a time back to search, a coincidence diameter (both in seconds), as well as an array of channels and optional delays,
         returns the number of times that *all* channels in channel array were within the same coincidence diameter. Basically a big AND for all of
