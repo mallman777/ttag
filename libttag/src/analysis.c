@@ -284,9 +284,6 @@ TT_DEF_ uint64_t* tt_coincidences(const tt_buf *const buffer, double time, doubl
     return coincidenceMatrix;
 }
 
-
-
-
 /*
 TT_COINCIDENCES_ND
 Works exactly like TT_COINCIDENCES, but it does not include any code to handle delays, making the function simpler and faster
@@ -364,12 +361,14 @@ TT_DEF_ uint64_t* tt_coincidences_nd(const tt_buf *const buffer, double time, do
 
 /////////////////////////////////
 /*
-TT_COINCIDENCETIMES_ND
-Works exactly like TT_COINCIDENCES, but it does not include any code to handle delays, making the function simpler and faster and returns the tags and channels of coincidences.  Returns ttag differences
-with respect to a herald photon on a given channel.  Warning: This function assumes that the herald photon has the larger time tag.  Meaning it arrives in the buffer after the array pulses.
+TT_COINCIDENCES_ND_HERALD
+Works exactly like TT_COINCIDENCES, but it does not include any code to handle delays, making the function simpler and faster.  
+Calculates coincidence rates between channels only in the presence of a herald event in a given channel called heraldChan. The 
+coincidences must occur within the given coincidence window of the herald.  The Warning: This function 
+assumes that the herald photon has the larger time tag.  Meaning it arrives in the buffer after the array pulses.
 */
 
-TT_DEF_ uint64_t* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan) {
+TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan) {
     uint64_t dataMin;
     uint64_t i, j;
     uint8_t channels = tt_channels(buffer);
@@ -424,7 +423,7 @@ TT_DEF_ uint64_t* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t
 }
 
 
-TT_DEF_ uint64_t* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan) {
+TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan) {
 
     //TT_ASSERT(buffer,NULL);
     TT_ASSERT(time, NULL);
@@ -435,13 +434,116 @@ TT_DEF_ uint64_t* tt_coincidencetimes_nd(const tt_buf *const buffer, double time
     //Make sure that there is data - and if not, return empty result
     TT_WARN(tt_datanum(buffer) == 0, return (coincidenceMatrix ? coincidenceMatrix : (uint64_t*)calloc(tt_channels(buffer)*tt_channels(buffer), sizeof(uint64_t))); , "Buffer is empty!");
 
-    coincidenceMatrix = tt_rawcoincidencetimes_nd(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius),
+    coincidenceMatrix = tt_rawcoincidences_nd_herald(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius),
         coincidenceMatrix, tt_datanum(buffer) - 1, heraldChan);
 
     return coincidenceMatrix;
 }
 
 /////////////////////////////////
+
+/*
+TT_COINCIDENCETIMES_ND
+Uses TT_COINCIDENCES_ND algorithm but returns the times and channel pairs associated with the coincidences.  Returns a pointer to a structure cointaining
+the times and chans as well as the size of the times array.  The size of the chans array is twice that, since each time has two chans associated with it.
+This is a function that works for the array.
+*/
+
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex) {
+    uint64_t dataMin;
+    uint64_t i;
+    uint8_t channels = tt_channels(buffer);
+    uint64_t totalCoincidences = 0;
+    uint64_t timeIndexer = 0;  // index to help loading the time array.
+    uint64_t chanIndexer = 0;  // index to help loading the chan array.
+
+    //Make sure everything is working correctly
+    //TT_ASSERT(buffer,NULL);
+    TT_ASSERT(timebins, NULL);
+    TT_ASSERT(dataindex < tt_datanum(buffer), NULL);
+    
+    //Allocate a coincidenceTimes structure
+    coincidenceTimes * timeStruct = (coincidenceTimes*) calloc(1,sizeof(coincidenceTimes)); // Is that right?
+
+//    TT_CHKERR(coincidenceTimes, return NULL, "Failed to allocate coincidenceTimes.");
+    
+    //Next, subtract the allowed time to get the minimum time tag to accept. The minindex is taken into account later
+    TT_WARN(tt_tag(buffer, dataindex) <= timebins, dataMin= 0, "Time goes beyond total data!")
+    else {
+        dataMin = tt_tag(buffer, dataindex) - timebins;
+    }
+
+    //Preliminaries are set. This means:
+    // - dataindex is the location of the most recent data point
+    // - dataMin is the minimum time tag to allow for each channel
+
+    // Run through the coincidence algorithm once to find the total number of coincidences so we know how big to make the array of times and chans.
+    for (; dataindex != ~((uint64_t)0) && tt_minindex(buffer) <= dataindex && tt_tag(buffer, dataindex) >= dataMin; dataindex--) {
+        //Only find coincidences between defined channels and if dataindex is on the herald chan.  
+        if (tt_channel(buffer, dataindex) < channels) {
+
+            //We add the singles counts on the diagonal, rather than coincidences. This is to match the behavior of tt_coincidences
+            //coincidenceMatrix[(channels + 1)*tt_channel(buffer, dataindex)]++;
+
+            for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + radius >= tt_tag(buffer, dataindex); i--) {
+            //Once again, we imitate the tt_coincidences functionality, where the diagonal is singles, not coincidences
+                if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) < channels) {
+                    totalCoincidences++;
+                }
+            }
+        }
+    }
+
+    timeStruct -> times  = (uint64_t*) calloc(totalCoincidences ,sizeof(uint64_t));
+    timeStruct -> chans  = (uint8_t*) calloc(2*totalCoincidences ,sizeof(uint8_t));
+    timeStruct -> size  = totalCoincidences;
+
+    // Now run through the coincidence algorithm again to find the coincidence times and populate the arrays times and chans.
+    timeIndexer = (timeStruct -> size) -1;  // index to help loading the time array.
+    chanIndexer = 2*(timeStruct -> size) -1;  // index to help loading the chan array.
+
+    for (; dataindex != ~((uint64_t)0) && tt_minindex(buffer) <= dataindex && tt_tag(buffer, dataindex) >= dataMin; dataindex--) {
+        //Only find coincidences between defined channels and if dataindex is on the herald chan.  
+        if (tt_channel(buffer, dataindex) < channels) {
+
+            //We add the singles counts on the diagonal, rather than coincidences. This is to match the behavior of tt_coincidences
+            //coincidenceMatrix[(channels + 1)*tt_channel(buffer, dataindex)]++;
+
+            for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + radius >= tt_tag(buffer, dataindex); i--) {
+            //Once again, we imitate the tt_coincidences functionality, where the diagonal is singles, not coincidences
+                if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) < channels) {
+                    timeStruct -> times[timeIndexer] = tt_tag(buffer, dataindex);
+                    timeStruct -> chans[chanIndexer] = tt_channel(buffer, i);
+                    timeStruct -> chans[chanIndexer-1] = tt_channel(buffer, dataindex);
+                    timeIndexer--;
+                    chanIndexer -= 2;
+                }
+            }
+        }
+    }
+
+    return timeStruct;
+}
+
+TT_DEF_ coincidenceTimes* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius) {
+
+    //TT_ASSERT(buffer,NULL);
+    TT_ASSERT(time, NULL);
+
+    //Check for reference time
+    TT_ASSERT(!isnan(tt_resolution(buffer)), NULL);
+
+    //Make sure that there is data - and if not, return empty result
+    TT_WARN(tt_datanum(buffer) == 0, return (coincidenceTimes*)calloc(1, sizeof(coincidenceTimes); , "Buffer is empty!");
+
+    return tt_rawcoincidencetimes_nd(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius), tt_datanum(buffer) - 1);
+}
+
+
+////////////////////////////////
+
+////////////////////////////////
+
 
 TT_DEF_ uint64_t tt_rawmulticoincidences(const tt_buf *const buffer, uint64_t timebins, uint64_t diameter, uint8_t* channels, uint8_t channelnum,
         uint64_t* delayArray, uint64_t dataindex) {
