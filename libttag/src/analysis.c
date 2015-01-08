@@ -554,14 +554,14 @@ to the output buffer and free the staging buffer.  The idea is that we only have
 two memory blocks and doing a memcopy.   
 */
 
-TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex) {
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex, uint64_t maxdata) {
     uint64_t dataMin;
     uint64_t i;
     uint8_t channels = tt_channels(buffer);
     uint64_t totalCoincidences = 0;
-    uint64_t stageSize = TT_MAXDATA(buffer);  // the size of the staging buffer.  Eventually make this the size of the tt_buff.
+    uint64_t stageSize = maxdata;  // the size of the staging buffer.  Eventually make this the size of the tt_buff.
     uint64_t stageTimeIndexer = stageSize-1;  // index to help loading the staging arrays.
-    uint64_t stageChanIndexer = 2*(stageSize-1);
+    uint64_t stageChanIndexer = 2*stageSize-1;
 
     //Make sure everything is working correctly
     //TT_ASSERT(buffer,NULL);
@@ -632,7 +632,7 @@ TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd(const tt_buf *const buffer, do
     //Make sure that there is data - and if not, return empty result
     TT_WARN(tt_datanum(buffer) == 0, return (coincidenceTimes*)calloc(1, sizeof(coincidenceTimes));, "Buffer is empty!");
 
-    return tt_rawcoincidencetimes2_nd(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius), tt_datanum(buffer) - 1);
+    return tt_rawcoincidencetimes2_nd(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius), tt_datanum(buffer) - 1, tt_maxdata(buffer));
 }
 
 
