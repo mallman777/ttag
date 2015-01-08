@@ -103,6 +103,14 @@ typedef struct {
 
 } tt_buf;
 
+
+// This structure is used in tt_coincidencetimes_nd
+typedef struct{
+    uint64_t * times;
+    uint8_t * chans;
+    uint64_t size;
+} coincidenceTimes;
+
 //-------------------------------------------------------------------------------------------------------------
 //Map Detection and buffer counting
 
@@ -752,8 +760,14 @@ TT_DEF_ uint64_t* tt_coincidences_nd(const tt_buf *const buffer, double time, do
 TT_DEF_ uint64_t* tt_rawcoincidences_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex);
 
 //Simplified (faster) versions without delay handling (nd=nodelay) and only coincidences on a herald photon on channel heraldChan
-TT_DEF_ uint64_t* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan);
-TT_DEF_ uint64_t* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan);
+TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan);
+TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan);
+
+TT_DEF_ coincidenceTimes* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius);
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex);
+
+TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd(const tt_buf *const buffer, double time, double radius);
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex, uint64_t maxdata);
 
 /*
 tt_multicoincidences: Given a time back to search, a coincidence diameter (both in seconds), as well as an array of channels and optional delays,
