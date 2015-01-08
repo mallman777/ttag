@@ -766,6 +766,9 @@ TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint6
 TT_DEF_ coincidenceTimes* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius);
 TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex);
 
+TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd(const tt_buf *const buffer, double time, double radius);
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex, uint64_t maxdata);
+
 /*
 tt_multicoincidences: Given a time back to search, a coincidence diameter (both in seconds), as well as an array of channels and optional delays,
         returns the number of times that *all* channels in channel array were within the same coincidence diameter. Basically a big AND for all of
