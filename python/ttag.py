@@ -293,6 +293,11 @@ class tt_buf(ctypes.Structure):
                 ("timetag",ctypes.POINTER(ctypes.c_ulonglong)),
                 ("channel",ctypes.POINTER(ctypes.c_ubyte))]
 
+class coincidenceTimes(ctypes.Structure):
+    _fields_ = [("times", ctypes.POINTER(ctypes.c_ulonglong)),
+                ("chans", ctypes.POINTER(ctypes.c_ubyte)),
+                ("size", ctypes.c_ulonglong)]
+
 #Defines the C library's functions and their arguments
 
 libttag.tt_getNextFree.restype = ctypes.c_int
@@ -395,8 +400,14 @@ libttag.tt_coincidences.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctype
 libttag.tt_coincidences_nd.restype = ctypes.POINTER(ctypes.c_ulonglong)
 libttag.tt_coincidences_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong)]
 
-libttag.tt_coincidencetimes_nd.restype = ctypes.POINTER(ctypes.c_ulonglong)
-libttag.tt_coincidencetimes_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_ubyte]
+libttag.tt_coincidences_nd_herald.restype = ctypes.POINTER(ctypes.c_ulonglong)
+libttag.tt_coincidences_nd_herald.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_ubyte]
+
+libttag.tt_coincidencetimes_nd.restype = ctypes.POINTER(coincidenceTimes)
+libttag.tt_coincidencetimes_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double]
+
+libttag.tt_coincidencetimes2_nd.restype = ctypes.POINTER(coincidenceTimes)
+libttag.tt_coincidencetimes2_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double]
 
 libttag.tt_multicoincidences.restype = ctypes.c_ulonglong
 libttag.tt_multicoincidences.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ubyte),
@@ -640,12 +651,30 @@ class TTBuffer(object):
         elif (heraldChan!=None):
             if (heraldChan >= self.channels):
                 raise ValueError("Herald channel bigger than total channels")
-            libttag.tt_coincidencetimes_nd(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)), heraldChan)
+            libttag.tt_coincidences_nd_herald(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)), heraldChan)
         else:
             #If there are no delays, run the nd version of tt_coincidences, which will probably be quite a bit faster
             libttag.tt_coincidences_nd(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)))
         return coincidenceMatrix
     
+    def coincidenceTimes(self, time, radius):
+        timesStruc = libttag.tt_coincidencetimes_nd(self.tt_buf, time, radius)
+        t = numpy.array(timesStruc.contents.times[0:timesStruc.contents.size], dtype = numpy.uint64)
+        c = numpy.array(timesStruc.contents.chans[0:2*timesStruc.contents.size], dtype = numpy.uint8)
+        if (numpy.isnan(self.resolution) or self.tagsAsTime==False):
+            return (c,t)
+        else:
+            return (c,t.astype(numpy.double)*self.resolution)
+
+    def coincidenceTimes2(self, time, radius):
+        timesStruc = libttag.tt_coincidencetimes2_nd(self.tt_buf, time, radius)
+        t = numpy.array(timesStruc.contents.times[0:timesStruc.contents.size], dtype = numpy.uint64)
+        c = numpy.array(timesStruc.contents.chans[0:2*timesStruc.contents.size], dtype = numpy.uint8)
+        if (numpy.isnan(self.resolution) or self.tagsAsTime==False):
+            return (c,t)
+        else:
+            return (c,t.astype(numpy.double)*self.resolution)
+
     def multicoincidences(self,time,diameter,channels,delays=None):
         if not (isinstance(channels,numpy.ndarray)):
             channels = numpy.array(channels,dtype=numpy.uint8)
