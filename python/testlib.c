@@ -1,5 +1,6 @@
 # include <stdlib.h>
 # include <string.h>
+# include <stdint.h>
 
 typedef struct{
     long * times;
@@ -61,15 +62,15 @@ int arrSum (int arr[], int arrSize){
 Function that histograms data with single-interger bin size, so no need for division.
 */
 
-uint64_t * myHist(uint64_t * arr, uint64_t * range){
+uint64_t * myHist(uint64_t * hist, uint64_t * arr, uint64_t * range){
   uint64_t binNum = (range[1] - range[0]) + 1;
-  uint64_t * y = (uint64_t*)calloc(2*binNum, sizeof(uint64_t)); // y holds the hist and the bin array
+  uint64_t binIndex;
   for (uint32_t i = 0; arr[i] >= range[0] && arr[i] <= range[1]; ++i){
     binIndex = arr[i] - range[0];
-    y[binIndex]++;
+    hist[binIndex]++;
   }
   for (uint32_t i = 0; i != binNum; ++i){
-    y[binSize + i] = range[0] + i;
+    hist[binNum + i] = range[0] + i;
   }
-  return y;
+  return hist;
 }
