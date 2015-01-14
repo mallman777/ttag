@@ -3,6 +3,7 @@ import numpy.ctypeslib
 import numpy as np
 import time
 
+
 class myStruct(ctypes.Structure):
     _fields_ = [("times", ctypes.POINTER(ctypes.c_long)),
                 ("chans", ctypes.POINTER(ctypes.c_short)),
@@ -16,6 +17,9 @@ lib.myFun.restype = ctypes.POINTER(myStruct)
 lib.myFun.argtypes = [ctypes.c_int]
 lib.arrSum.restypes = ctypes.c_int
 lib.arrSum.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+lib.myHist.restypes = ctypes.POINTER(ctypes.c_longlong)
+lib.myHist.argtypes = [ctypes.POINTER(ctypes.c_longlong), 
+                       ctypes.POINTER(ctypes.c_longlong)]
 
 x = 6
 y = 6
@@ -28,28 +32,28 @@ print m.contents.size
 print m.contents.times[0:m.contents.size]
 print m.contents.chans[0:m.contents.size]
 
-if False:
-    SIZE = int(1000000)
+if True:
+    SIZE = int(100000)
     z = np.ones(SIZE, dtype = np.int32)
+    range = np.array([0,7])
+    binNum = range[1] - range[0] + 1
+    y = np.random.randint(range[0], range[1],SIZE)
 
     to = time.time()
-    ans1 = np.sum(z)
+    y = np.array(lib.myHist(y.ctypes.data_as(ctypes.POINTER(ctypes.c_longlong)),
+                       range.ctypes.data_as(ctypes.POINTER(ctypes.c_longlong))))
+    yy = y[0:binNum]
+    xx = y[binNum::]
     tf = time.time()
-    runTimeNP = tf-to
+    runTimeMyHist = tf-to
 
     to = time.time()
-    ans2 = lib.arrSum(z.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),SIZE) 
+    yy,xx = np.histogram(y, binNum, range = (range[0],range[1]))
     tf = time.time()
-    runTimeLIB = tf-to
+    runTimeNpHist = tf-to
 
-    ans3 = 0
-    to = time.time()
-    for i in range(SIZE):
-        ans3 += z[i]
-    tf = time.time()
-    runTimeLoop = tf-to
-    
-    print ans1, ans2, ans3
-    print "runTimeNP: ", runTimeNP
-    print "runTimeLIB: ", runTimeLIB
-    print "runTimeLoop: ", runTimeLoop
+    print runTimeMyHist
+    print runTimeNpHist
+
+
+
