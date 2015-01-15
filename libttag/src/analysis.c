@@ -636,6 +636,101 @@ TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd(const tt_buf *const buffer, do
 }
 
 
+/*
+TT_COINCIDENCETIMES2_ND_HERALD
+The same as tt_coincidencetimes2_nd    
+*/
+
+TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t gate, 
+                                                            uint8_t heraldChan, uint64_t dataindex, uint64_t maxdata) {
+    uint64_t dataMin;
+    uint64_t i, j;
+    uint8_t channels = tt_channels(buffer);
+    uint64_t totalCoincidences = 0;
+    uint64_t stageSize = maxdata;  // the size of the staging buffer.  Eventually make this the size of the tt_buff.
+    uint64_t stageTimeIndexer = stageSize-1;  // index to help loading the staging arrays.
+    uint64_t stageChanIndexer = 2*stageSize-1;
+
+    //Make sure everything is working correctly
+    //TT_ASSERT(buffer,NULL);
+    TT_ASSERT(timebins, NULL);
+    TT_ASSERT(dataindex < tt_datanum(buffer), NULL);
+    
+    //Allocate a coincideTimes structure.  This will have the staging buffer.
+    coincidenceTimes * stagingStruct = (coincidenceTimes*) calloc(1,sizeof(coincidenceTimes)); 
+
+    stagingStruct -> times  = (uint64_t*) calloc(stageSize,sizeof(uint64_t));
+    stagingStruct -> chans  = (uint8_t*) calloc(2*stageSize,sizeof(uint8_t));
+
+    //Allocate a coincidenceTimes structure.  This will have the output buffer.
+    coincidenceTimes * timeStruct = (coincidenceTimes*) calloc(1,sizeof(coincidenceTimes)); 
+
+//    TT_CHKERR(coincidenceTimes, return NULL, "Failed to allocate coincidenceTimes.");
+    
+    //Next, subtract the allowed time to get the minimum time tag to accept. The minindex is taken into account later
+    TT_WARN(tt_tag(buffer, dataindex) <= timebins, dataMin= 0, "Time goes beyond total data!")
+    else {
+        dataMin = tt_tag(buffer, dataindex) - timebins;
+    }
+
+    //Preliminaries are set. This means:
+    // - dataindex is the location of the most recent data point
+    // - dataMin is the minimum time tag to allow for each channel
+
+    // Run through the coincidence algorithm while populating staging buffers and counting total coincidences.
+    for (; dataindex != ~((uint64_t)0) && tt_minindex(buffer) <= dataindex && tt_tag(buffer, dataindex) >= dataMin; dataindex--) {
+        //Only find coincidences between defined channels and if dataindex is on the herald chan.  
+        if (tt_channel(buffer, dataindex) < channels && tt_channel(buffer, dataindex) == heraldChan) {
+            for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + gate >= tt_tag(buffer, dataindex); i--) {
+                for (j = dataindex - 2; j != ~((uint64_t)0) && tt_minindex(buffer) <= j && tt_tag(buffer, j) >= dataMin && tt_tag(buffer, j) + radius >= tt_tag(buffer, i); j--){
+                //Once again, we imitate the tt_coincidences functionality, where the diagonal is singles, not coincidences
+                    if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) != tt_channel(buffer, j) 
+                                                        && tt_channel(buffer, i) < channels && tt_channel(buffer, j) < channels) {
+                        stagingStruct->times[stageTimeIndexer] = tt_tag(buffer, dataindex) - tt_tag(buffer, i); 
+                        stagingStruct->chans[stageChanIndexer] = tt_channel(buffer, j); 
+                        stagingStruct->chans[stageChanIndexer-1] = tt_channel(buffer, i); 
+                        totalCoincidences++;
+                        stageTimeIndexer--;
+                        stageChanIndexer -= 2;
+                    }
+                }
+            }
+        }
+    }
+
+    timeStruct -> times  = (uint64_t*) calloc(totalCoincidences,sizeof(uint64_t));
+    timeStruct -> chans  = (uint8_t*) calloc(2*totalCoincidences,sizeof(uint8_t));
+    timeStruct -> size  = totalCoincidences;
+
+    memcpy(timeStruct->times, stagingStruct->times + (stageSize - totalCoincidences), totalCoincidences*sizeof(uint64_t));
+    memcpy(timeStruct->chans, stagingStruct->chans + 2*(stageSize - totalCoincidences), 2*totalCoincidences*sizeof(uint8_t));
+
+    free(stagingStruct->times);
+    free(stagingStruct->chans);
+    free(stagingStruct);
+
+    return timeStruct;
+}
+
+TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd_herald(const tt_buf *const buffer, double time, double radius, double gate, uint8_t heraldChan) {
+
+    //TT_ASSERT(buffer,NULL);
+    TT_ASSERT(time, NULL);
+
+    //Check for reference time
+    TT_ASSERT(!isnan(tt_resolution(buffer)), NULL);
+
+    //Make sure that there is data - and if not, return empty result
+    TT_WARN(tt_datanum(buffer) == 0, return (coincidenceTimes*)calloc(1, sizeof(coincidenceTimes));, "Buffer is empty!");
+
+    return tt_rawcoincidencetimes2_nd_herald(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius), 
+                                                    tt_time2bin(buffer, gate), heraldChan, tt_datanum(buffer) - 1, tt_maxdata(buffer));
+}
+
+
+
+
+
 ////////////////////////////////
 
 
