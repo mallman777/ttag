@@ -3,52 +3,52 @@
 #cXv=Channel X threshold voltage
 #cXe=Channel X edge (1=rising,0=falling)
 
-c1v=0.2
+c1v=0.20
 c1e=1
 
-c2v=0.2
+c2v=0.35
 c2e=1
 
-c3v=0.2
+c3v=0.35
 c3e=1
 
-c4v=0.45
+c4v=0.35
 c4e=1
 
-c5v=0.45
+c5v=0.35
 c5e=1
 
-c6v=0.45
+c6v=0.35
 c6e=1
 
-c7v=0.45
+c7v=0.35
 c7e=1
 
-c8v=0.45
+c8v=0.35
 c8e=1
 
-c9v=-0.45
+c9v=-0.35
 c9e=0
 
-c10v=-0.45
+c10v=-0.35
 c10e=0
 
-c11v=-0.45
+c11v=-0.35
 c11e=0
 
-c12v=-0.45
+c12v=-0.35
 c12e=0
 
-c13v=-0.45
+c13v=-0.35
 c13e=0
 
-c14v=-0.45
+c14v=-0.35
 c14e=0
 
-c15v=-0.45
+c15v=-0.35
 c15e=0
 
-c16v=-0.45
+c16v=-0.35
 c16e=0
 
 
@@ -57,7 +57,6 @@ reference=0
 
 #The size of the buffer to which data is streamed. At least 100 million is preferred
 buffer=100000000
-
 
 #Whether or not to start acquisition automatically 1=start acquisition, 0=Don't (default)
 autostart=0

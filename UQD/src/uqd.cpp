@@ -36,7 +36,7 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 #include <boost/program_options.hpp>
 	namespace po = boost::program_options;
 
-#include "./CTimeTag/Include/CTimeTag.h"	//Include the UQD library
+#include "./CTimeTag_Version_2_18_9/CTimeTag/Include/CTimeTag.h"	//Include the UQD library
 #include "ttag.h"		//Includes the timetagger buffer
 	using namespace TimeTag;
 
@@ -83,9 +83,11 @@ int main(int argc, char** argv) {
 	float channelvoltage[16];	//The threshold voltage for each channel
 	bool channeledge[16];		//The edge to trigger each channel: true=rising, false=falling
 	int ledbrightness;			//The LED brightness
-    bool useEdgeGate = false;
-    int delay = 0;
-    int gateDuration = 1000;
+  bool useEdgeGate = false;
+//  int delay = (int)(-15e-9/156.25e-12);              //Delay for herald using array.
+//  int delay = (int)(-10e-9/156.25e-12);              //Delay for herald wrt signal using apds
+  int delay = (int)(0/156.25e-12);              //Channel delay in internal units of the ttager.
+  int gateDuration = 100;
 	//These are command-line only options
     po::options_description genopt("Generic Options");
 	genopt.add_options()
@@ -242,14 +244,14 @@ int main(int argc, char** argv) {
 			cout << "> Using Edge Gate" << endl;
 			tagger.UseTimetagGate(useEdgeGate);
  
-//			cout << "> Set Gate Delay" << endl;
-//			tagger.SetDelay(8, delay);
+			cout << "> Set Chan Delays" << endl;
+            for (unsigned int i = 1; i != 17; ++i){
+			    tagger.SetDelay(i, 0);
+            }
+      tagger.SetDelay(1,delay);
 
-			cout << "> Set Gate Delay" << endl;
-			tagger.SetDelay(1, delay);
-
-			cout << "> Setting Gate Duration" << endl;
-			tagger.SetGatingTime(gateDuration);
+//			cout << "> Setting Gate Duration" << endl;
+//			tagger.SetGateWidth(gateDuration);
 
 			cout << "> Setting Edge Values" << endl;
 			int mask = 0;
@@ -310,6 +312,11 @@ int main(int argc, char** argv) {
 				for (int i=0; i<tagcount;i++) {
 					if (last > tagarray[i]+tag_offset) {
 						tag_offset = 100000000+ last - tagarray[i];
+            cout << "last: " << last << endl;
+            cout << "tagarray[i-1]: " << tagarray[i-1] << " channelarray[i-1]: " << (int)channelarray[i-1] << endl;
+            cout << "tagarray[i]: " << tagarray[i] << " channelarray[i]: " << (int)channelarray[i] << endl;
+            cout << "tagarray[i+1]: " << tagarray[i+1] << " channelarray[i+1]: " << (int)channelarray[i+1] << endl;
+            cout << "tag_offset: " << tag_offset << endl;
 						cout << ">> WARNING: Offset tag detected." << endl;
 					}
 					if (channelarray[i]==30) {
@@ -320,6 +327,15 @@ int main(int argc, char** argv) {
 						tt_datanum(buffer)++;
 					}
 					last = tagarray[i]+tag_offset;
+        //(i > 0 && i < tagcount -1){
+          if (0 == 1) {
+            if(tagarray[i] - tagarray[i-1] < 500 && channelarray[i] != channelarray[i-1]){
+              cout << "tagarray[i-1]: " << tagarray[i-1] << " channelarray[i-1]: " << (int)channelarray[i-1] << endl;
+              cout << (tagarray[i] - tagarray[i-1])*156.25e-12 << endl;
+              cout << "tagarray[i]: " << tagarray[i] << " channelarray[i]: " << (int)channelarray[i] << endl;
+              cout << "tagarray[i+1]: " << tagarray[i+1] << " channelarray[i+1]: " << (int)channelarray[i+1] << endl;
+             }
+          }
 				}
 				tt_writeindex(buffer) = tt_datanum(buffer);
 				printf(" Reading: %llu                       \r",tt_datapoints(buffer));

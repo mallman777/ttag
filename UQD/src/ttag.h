@@ -760,8 +760,8 @@ TT_DEF_ uint64_t* tt_coincidences_nd(const tt_buf *const buffer, double time, do
 TT_DEF_ uint64_t* tt_rawcoincidences_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex);
 
 //Simplified (faster) versions without delay handling (nd=nodelay) and only coincidences on a herald photon on channel heraldChan
-TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan);
-TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan);
+TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, double gate, uint8_t heraldChan);
+TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint64_t gate, uint8_t heraldChan);
 
 TT_DEF_ coincidenceTimes* tt_coincidencetimes_nd(const tt_buf *const buffer, double time, double radius);
 TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex);

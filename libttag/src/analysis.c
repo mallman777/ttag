@@ -379,11 +379,11 @@ coincidences must occur within the given coincidence window of the herald.  The 
 assumes that the herald photon has the larger time tag.  Meaning it arrives in the buffer after the array pulses.
 */
 
-TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint8_t heraldChan) {
+TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t* coincidenceMatrix, uint64_t dataindex, uint64_t gate, uint8_t heraldChan) {
     uint64_t dataMin;
     uint64_t i, j;
     uint8_t channels = tt_channels(buffer);
-
+    bool coincidenceFound;
     //Make sure everything is working correctly
     //TT_ASSERT(buffer,NULL);
     TT_ASSERT(timebins, NULL);
@@ -399,7 +399,6 @@ TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint6
         TT_CHKERR(coincidenceMatrix,return NULL, "Failed to allocate coincidence matrix.");
     }
     
-
     //Next, subtract the allowed time to get the minimum time tag to accept. The minindex is taken into account later
     TT_WARN(tt_tag(buffer, dataindex) <= timebins, dataMin= 0, "Time goes beyond total data!")
     else {
@@ -417,12 +416,23 @@ TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint6
             //We add the singles counts on the diagonal, rather than coincidences. This is to match the behavior of tt_coincidences
             coincidenceMatrix[(channels + 1)*tt_channel(buffer, dataindex)]++;
 
-            for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + radius >= tt_tag(buffer, dataindex); i--) {
-                    for (j = dataindex - 2; j != ~((uint64_t)0) && tt_minindex(buffer) <= j && tt_tag(buffer, j) >= dataMin && tt_tag(buffer, j) + radius >= tt_tag(buffer, i); j--) {
+            for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + gate >= tt_tag(buffer, dataindex); i--) {
+                    coincidenceFound = false;
+                    for (j = i - 1; j != ~((uint64_t)0) && tt_minindex(buffer) <= j && tt_tag(buffer, j) >= dataMin; j--) {
                     //Once again, we imitate the tt_coincidences functionality, where the diagonal is singles, not coincidences
-                        if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) != tt_channel(buffer, j) && tt_channel(buffer, i) < channels && tt_channel(buffer, j) < channels) {
+                        if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) != tt_channel(buffer, j) 
+                            && tt_channel(buffer, i) < channels && tt_channel(buffer, j) < channels && tt_tag(buffer, j) + radius >= tt_tag(buffer, i)) {
                             coincidenceMatrix[channels*tt_channel(buffer, i) + tt_channel(buffer, j)]++;
                             coincidenceMatrix[channels*tt_channel(buffer, j) + tt_channel(buffer, i)]++;
+                            coincidenceFound = true;
+                        }
+                        else if (!coincidenceFound && tt_tag(buffer, j) + radius < tt_tag(buffer, i)){
+                          coincidenceMatrix[channels*tt_channel(buffer, i) + tt_channel(buffer, dataindex)]++;
+                          coincidenceMatrix[channels*tt_channel(buffer, dataindex) + tt_channel(buffer, i)]++;
+                          break;
+                        }
+                        else {
+                          break;
                         }
                     }
             }
@@ -434,7 +444,7 @@ TT_DEF_ uint64_t* tt_rawcoincidences_nd_herald(const tt_buf *const buffer, uint6
 }
 
 
-TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, uint8_t heraldChan) {
+TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double time, double radius, uint64_t* coincidenceMatrix, double gate, uint8_t heraldChan) {
 
     //TT_ASSERT(buffer,NULL);
     TT_ASSERT(time, NULL);
@@ -446,7 +456,7 @@ TT_DEF_ uint64_t* tt_coincidences_nd_herald(const tt_buf *const buffer, double t
     TT_WARN(tt_datanum(buffer) == 0, return (coincidenceMatrix ? coincidenceMatrix : (uint64_t*)calloc(tt_channels(buffer)*tt_channels(buffer), sizeof(uint64_t))); , "Buffer is empty!");
 
     coincidenceMatrix = tt_rawcoincidences_nd_herald(buffer, tt_subtractreference(buffer, tt_time2bin(buffer, time)), tt_time2bin(buffer, radius),
-        coincidenceMatrix, tt_datanum(buffer) - 1, heraldChan);
+        coincidenceMatrix, tt_datanum(buffer) - 1, tt_time2bin(buffer, gate), heraldChan);
 
     return coincidenceMatrix;
 }
@@ -562,7 +572,7 @@ referred to as the staging buffer, is huge, the size of the buffer itself.  It l
 with coincidence tags while counting the total number of coincidences.  Then it allocates a second block of memory, referred to as the output buffer,
 that we make the correct size, since we now know the total number of coincidences.  We then mem copy the correct amount of data from the staging buffer 
 to the output buffer and free the staging buffer.  The idea is that we only have to loop through the algorithm once, but at the expense of creating
-two memory blocks and doing a memcopy.   
+two memory blocks and doing a memcopy. 
 */
 
 TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t dataindex, uint64_t maxdata) {
@@ -649,7 +659,7 @@ TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd(const tt_buf *const buffer, do
 
 /*
 TT_COINCIDENCETIMES2_ND_HERALD
-The same as tt_coincidencetimes2_nd    
+The same as tt_coincidencetimes2_nd but does heralding.  Returns row/column coincidence times relative to the herald photon
 */
 
 TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd_herald(const tt_buf *const buffer, uint64_t timebins, uint64_t radius, uint64_t gate, 
@@ -693,7 +703,7 @@ TT_DEF_ coincidenceTimes* tt_rawcoincidencetimes2_nd_herald(const tt_buf *const 
         //Only find coincidences between defined channels and if dataindex is on the herald chan.  
         if (tt_channel(buffer, dataindex) < channels && tt_channel(buffer, dataindex) == heraldChan) {
             for (i = dataindex - 1; i != ~((uint64_t)0) && tt_minindex(buffer) <= i && tt_tag(buffer, i) >= dataMin && tt_tag(buffer, i) + gate >= tt_tag(buffer, dataindex); i--) {
-                for (j = dataindex - 2; j != ~((uint64_t)0) && tt_minindex(buffer) <= j && tt_tag(buffer, j) >= dataMin && tt_tag(buffer, j) + radius >= tt_tag(buffer, i); j--){
+                for (j = i - 1; j != ~((uint64_t)0) && tt_minindex(buffer) <= j && tt_tag(buffer, j) >= dataMin && tt_tag(buffer, j) + radius >= tt_tag(buffer, i); j--){
                 //Once again, we imitate the tt_coincidences functionality, where the diagonal is singles, not coincidences
                     if (tt_channel(buffer, i) != tt_channel(buffer, dataindex) && tt_channel(buffer, i) != tt_channel(buffer, j) 
                                                         && tt_channel(buffer, i) < channels && tt_channel(buffer, j) < channels) {
@@ -738,8 +748,7 @@ TT_DEF_ coincidenceTimes* tt_coincidencetimes2_nd_herald(const tt_buf *const buf
                                                     tt_time2bin(buffer, gate), heraldChan, tt_datanum(buffer) - 1, tt_maxdata(buffer));
 }
 
-
-
+///////////////////////////////
 
 
 ////////////////////////////////

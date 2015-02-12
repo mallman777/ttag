@@ -401,7 +401,7 @@ libttag.tt_coincidences_nd.restype = ctypes.POINTER(ctypes.c_ulonglong)
 libttag.tt_coincidences_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong)]
 
 libttag.tt_coincidences_nd_herald.restype = ctypes.POINTER(ctypes.c_ulonglong)
-libttag.tt_coincidences_nd_herald.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_ubyte]
+libttag.tt_coincidences_nd_herald.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_double, ctypes.c_ubyte]
 
 libttag.tt_coincidencetimes_nd.restype = ctypes.POINTER(coincidenceTimes)
 libttag.tt_coincidencetimes_nd.argtypes = [ctypes.POINTER(tt_buf),ctypes.c_double,ctypes.c_double]
@@ -638,7 +638,7 @@ class TTBuffer(object):
         libttag.tt_singles(self.tt_buf,time,s.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)))
         return s
     
-    def coincidences(self,time,radius,delays=None,heraldChan = None):
+    def coincidences(self,time,radius,delays=None, gate = None, heraldChan = None):
         coincidenceMatrix = numpy.zeros((self.channels,self.channels),dtype=numpy.uint64)
         if (delays!=None):
             if not (isinstance(delays,numpy.ndarray)):
@@ -651,10 +651,10 @@ class TTBuffer(object):
                 delays=d
             libttag.tt_coincidences(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)),
                                     delays.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
-        elif (heraldChan!=None):
+        elif (heraldChan!=None and gate != None):
             if (heraldChan >= self.channels):
                 raise ValueError("Herald channel bigger than total channels")
-            libttag.tt_coincidences_nd_herald(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)), heraldChan)
+            libttag.tt_coincidences_nd_herald(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)), gate, heraldChan)
         else:
             #If there are no delays, run the nd version of tt_coincidences, which will probably be quite a bit faster
             libttag.tt_coincidences_nd(self.tt_buf,time,radius,coincidenceMatrix.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)))
