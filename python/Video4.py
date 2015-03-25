@@ -5,7 +5,7 @@ import os
 import atexit
 import subprocess
 import numpy as np
-import threading
+
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import pyqtgraph.parametertree.parameterTypes as pTypes
@@ -27,18 +27,23 @@ rawFlatField = rawFlatField[:,1:]
 flatField = rawFlatField-darks
 """
 # Experimental Parameters
-Tacq = 10  # Measurement time in seconds
+Tacq = 2  # Measurement time in seconds
 
 timer = QtCore.QTimer()
-#timer.setInterval(int(Tacq*1000)+10)
-timer.setInterval(int(1000)+10)
-timer.setSingleShot(True)
+timer.setInterval(int(Tacq*1000)+10)
 
 params = [
-  {'name':'start','type':'action','visible':True},
   {'name':'Tacq', 'type':'float','value':Tacq,'limits':(0,100)},
   {'name':'min', 'type':'int','value':0},
-  {'name':'max', 'type':'int','value':100},
+  {'name':'max', 'type':'int','value':1},
+  {'name':'Take Save Flat Field','type':'action','visible':True},
+  {'name':'Import Flat Field File','type':'action','visible':True},
+  {'name':'Flat Field filename','type':'str','value':''},
+  {'name':'Use Flatfield','type':'bool','value':False},
+  {'name':'Take Save Dark Field','type':'action','visible':True},
+  {'name':'Import Dark Field File','type':'action','visible':True},
+  {'name':'Dark Field filename','type':'str','value':''},
+  {'name':'Use Darkfield','type':'bool','value':False},
   {'name':'filename','type':'str','value':''},
   {'name':'Set File Name','type':'action'},
   {'name':'Logdata','type':'action','visible':True},
@@ -55,28 +60,35 @@ params = [
 p = Parameter.create(name='params', type='group', children=params)
 
 #t.show()
+def TakeSaveFlatField():
+  fileName = QtGui.QFileDialog.getSaveFileName(None, 
+     "Select or Type in Flat Field Filename", ".") ;
+  tExposure = 1  # Exposure time for flat field in seconds
+  print fileName, tExposure
+  saveframe(fileName, "Flat Field", tExposure)  
+
+def ImportFlatFieldFile():
+  fileName = QtGui.QFileDialog.getOpenFileName(None, 
+     "Select Flat Field Filename to Import", ".")
+  p.param('Flat Field filename').setValue(fileName)
+
+def TakeSaveDarkField():
+  fileName = QtGui.QFileDialog.getSaveFileName(None, 
+     "Select or Type in Dark Field Filename", ".") ;
+  tExposure = 10  # Exposure time for dark field in seconds
+  print fileName, tExposure
+  saveframe(fileName, "Dark Field", tExposure)  
+
+def ImportDarkFieldFile():
+  fileName = QtGui.QFileDialog.getOpenFileName(None, 
+     "Select Dark Field Filename to Import", ".")
+  p.param('Dark Field filename').setValue(fileName)
 
 def setfilename():
   fileName = QtGui.QFileDialog.getSaveFileName(None, 
      "Select of Type in Image Filename to Save", ".") ;
   print fileName
   p.param('filename').setValue(fileName)
-
-def start():
-  global dataPath, filepath
-  dirCnt = 40 
-  #dataPath = '/hdd/run41/'
-  while True:
-    dataPath = '/hdd/run%d/'%dirCnt
-    try:  
-      os.makedirs(dataPath)
-      break
-    except:
-      dirCnt += 1
-  filepath = dataPath
-  update_thread = threading.Thread(None, update2)
-  update_thread.start()
-  p.param('start').setOpts(visible=False)
 
 def startlog():
   global logdata,fptr
@@ -99,9 +111,12 @@ def stoplog():
   #p.param('Stop Logging').setWriteable()
   logdata = False
  
+p.param('Take Save Flat Field').sigActivated.connect(TakeSaveFlatField)
+p.param('Import Flat Field File').sigActivated.connect(ImportFlatFieldFile)
+p.param('Take Save Dark Field').sigActivated.connect(TakeSaveDarkField)
+p.param('Import Dark Field File').sigActivated.connect(ImportDarkFieldFile)
 p.param('Set File Name').sigActivated.connect(setfilename)
 p.param('Logdata').sigActivated.connect(startlog)
-p.param('start').sigActivated.connect(start)
 p.param('Stop Logging').sigActivated.connect(stoplog)
 
 def change(param, changes):
@@ -124,6 +139,22 @@ def change(param, changes):
           timer.setInterval(int(data*1000)+10)
           Tacq = data
           timer.start()
+        if childName == 'Use Flatfield' and data == True:
+          fname = p.param('Flat Field filename').value() 
+          f = open(fname)
+          comment = f.readline()  # Could check header for "Flat Field" using if:
+          line = f.readline()
+          t_exp = float(line.split(':')[1])
+          rawData = np.fromfile(f,sep=' ')
+          flatField = rawData/rawData.max()
+        if childName == 'Use DarkField' and data == True:
+          fname = p.param('Dark Field filename').value() 
+          f = open(fname)
+          comment = f.readline()  # Could check header for "Flat Field" using if:
+          line = f.readline()
+          t_exp = float(line.split(':')[1])
+          rawData = np.fromfile(f,sep=' ')
+          darkField = rawData/t_exp
         
 p.sigTreeStateChanged.connect(change)
 t = ParameterTree()
@@ -185,7 +216,6 @@ if True:
 ttnumber = ttag.getfreebuffer()-1
 print "ttnumber: ", ttnumber
 buf = ttag.TTBuffer(ttnumber)  #Opens the buffer
-buf.tagsAsTime = False
 buf.start()
 time.sleep(1)
 
@@ -270,70 +300,40 @@ def getCoincidences(fTimes, fChans, gate, radius, heraldChan):
             
 cnt = 0
 dataPath = "/hdd/"
-
-import serial
-serialport = serial.Serial('/dev/ttyUSB1',38400,timeout=0.1)
-
-def waitforPC():
-    print 'Waiting for msg from PC'
-    msgin = ''
-    while (msgin == ''):
-        msgin = serialport.read(80);
-    app.processEvents() # process events on the GUI
-    #print 'msg from PC: %s' %msgin 
-    return msgin
-def sendtoPC(count):
-    print 'Sending photon num: %d'%count
-    serialport.write('%05d'%count)
-
 def update():
     global p,img,cnt,updateTime, fps, logdata, fptr, buf,darks, flatField, seq_count,plot1,plot2, dataPath
-    #  talk to PC and wait for data first
-    to = []
-    to.append(time.time())
-    msgin = waitforPC()
-    to.append(time.time())
-    cnt = int(msgin)
-    if cnt == -1:
-      return
-    app.processEvents()
     Tacq = p.param('Tacq').value()
-    start = buf.datapoints
-    time.sleep(Tacq)
-    stop = buf.datapoints
-    tup = buf[-(stop - start):]  # a tuple of chan tags, and time tags
-    sendtoPC(cnt)
-    to.append(time.time())
-    #  try to process and plot data while PC is setting up next frame
     gate = p.param('Gate').value()
     CoincidenceWindow = p.param('CoincidenceWindow').value()  # Coincidence window based on observed delay between row and column pulses.
     heraldChan = 0
-    fnameTags = 'tag_%06d.bin'%cnt
-    fnameChans = 'chan_%06d.bin'%cnt
-    fTags = open(filepath+fnameTags,'wb')
-    fChans = open(filepath+fnameChans,'wb')
-  
-    chans = tup[0]  #Single byte unsigned integer
-    tags = tup[1] #8 byte unsigned integer
-    chans.tofile(fChans)
-    tags.tofile(fTags)
-    fChans.close()
-    fTags.close()
-    """  
-    x = buf.coincidences(Tacq, CoincidenceWindow, gate = gate, heraldChan = heraldChan)
-#    x = buf.coincidences(Tacq, CoincidenceWindow)
+    #x = buf.coincidences(Tacq, CoincidenceWindow, gate = gate, heraldChan = heraldChan)
+    x = buf.coincidences(Tacq, CoincidenceWindow)
     y = buf.singles(Tacq)
-
     chart = getChart(x,y,cnt)
     printEff(x,y)
     image = np.reshape(x[0:8,8::],(1,64))
-    imageCorrected = image    
+    if False:
+      if os.path.isfile(os.path.join(dataPath, 'Photon%05d_tags.bin'%cnt)):
+        fTimes = os.path.join(dataPath, 'Photon%05d_tags.bin'%cnt)
+        fChans = os.path.join(dataPath, 'Photon%05d_chans.bin'%cnt)
+        image = np.reshape(getCoincidences(fTimes, fChans, gate, CoincidenceWindow, heraldChan), (1,-1))
+      else:
+        image = np.zeros(64)
+    if p.param('Use Darkfield').value():
+      imageCorrected = image-darks[8,:]
+    else:
+      imageCorrected = image
+    if p.param('Use Flatfield').value():
+      imageCorrected = imageCorrected/flatField
+    
     displayimage = np.reshape(imageCorrected,(8,8))[::-1,::-1].T
-  
+
     level=(p.param('min').value(), p.param('max').value() )
     img.setImage(displayimage,autoLevels=False,levels=level)
-
-    
+    now = ptime.time()
+    fps2 = 1.0 / (now-updateTime)
+    updateTime = now
+    fps = fps * 0.9 + fps2 * 0.1
     if p.param('Plot row').value()>0:
       row = p.param('Plot row').value()-1
       idx = np.arange(8) + row*8
@@ -349,7 +349,8 @@ def update():
       curve2.setData(imageCorrected[0,idx]+0.1)
     else:
       curve2.setData(chart[2,:])
-    plot2.setLogMode(x = False, y = p.param("LogScaleCol?").value())      
+    plot2.setLogMode(x = False, y = p.param("LogScaleCol?").value())
+      
     if logdata==True:
       print 'logging data'
       fptr.write('%f '%Tacq) 
@@ -362,18 +363,7 @@ def update():
       fname = sequencepath + '/' + basename + '%05d.png'%seq_count
       img.save(fname) 
       seq_count = seq_count + 1
-    """
-    to.append(time.time())
-    print np.diff(np.array(to))
-
-def update2():
-  global cnt
-  while True:
-    update() 
-    if cnt < 0:
-      print "calling cleanup"
-      p.param('start').setOpts(visible=True)
-      return
+    cnt+=1
 
 def cleanUp():
     #p.terminate()
@@ -385,11 +375,11 @@ def cleanUp():
     #os.kill(p.pid+2,signal.SIGINT)
 #    os.fsync(f)
 
-
 atexit.register(cleanUp)
-#timer.timeout.connect(update2)
-#timer.start()
+timer.timeout.connect(update)
+timer.start()
 win.raise_()
+#win.activateWindow()
 if __name__ == '__main__':
     import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):

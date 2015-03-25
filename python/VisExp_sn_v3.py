@@ -1,3 +1,4 @@
+# This version is designed to analyze the data as it is coming in.
 import sys
 import time
 import os
@@ -5,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import datetime
+import subprocess
+
 def calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan):
     coin = np.zeros([8,8]).astype(int)
     single = np.zeros([8,8]).astype(int)
@@ -24,7 +27,7 @@ def calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan):
     #    print 'chan %02d: %d'%(chan, (chans==chan).sum())
     times = times[::-1]
     chans = chans[::-1]
-    print 'Time window',(times[0] - times[-1])*bufRes
+    print (times[0] - times[-1])*bufRes
     for chan in range(8,16):
         np_all = 0
         nm_all = 0
@@ -82,44 +85,84 @@ def calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan):
     #print np_all.sum(), nm_all.sum()
     return single,coin
            
+def isActive(pid):
+  try:
+    os.kill(pid, 0)  # Doesn't actually kill the process!  Just a way to check to see if it is active.  If not active, and exception is thrown that we catch.
+    return True
+  except:
+    return False
+
+def getPid():
+  args = ['ps', 'ax']
+  args2 = ['grep', 'encode_decode']
+  p = subprocess.Popen(args, stdout = subprocess.PIPE)
+  output = subprocess.check_output(args2, stdin = p.stdout)
+  p.wait()
+  outList = [int(s) for s in output.split() if s.isdigit()]
+  return outList[0]
+
 if __name__ == "__main__":
 
-#  dataPath = "/hdd/2015_02_13/"
-  if len(sys.argv)>1:
+  if len(sys.argv)>2:
     dirnum = int(sys.argv[1])
+    Tacq = float(sys.argv[2])
+    pid = getPid()
   else:
     dirnum = 9
-  dataPath = '/hdd/2015_03_10/run%02d/'%dirnum
+    Tacq = 1
+    print "You forgot to include dirnum, and inttime, as input parameters"
+    print "Goodbye"
+    sys.exit()
+  dataPath = '/hdd/2015_03_12/run%02d/'%dirnum
   format = '%Y_%m_%d'
 #  dataPath = '/hdd/%s/run%d/'%(datetime.datetime.today().strftime(format),dirnum)
 
-  #fcoin = open(dataPath + 'coin_%db.txt'%dirnum, 'w')
-  #fsingle = open(dataPath + 'single_%db.txt'%dirnum, 'w')
+  fcoin = open(dataPath + 'coin_%d.txt'%dirnum, 'w')
+  fsingle = open(dataPath + 'single_%d.txt'%dirnum, 'w')
+
+  heraldChan = 0
+  gate = 10e-9
+  CoincidenceWindow = 10e-9
+  thresh_low = 0
+  thresh_high = 100 # changed by shane to try to reduce error.  Original value 100
+
+  cnt = -1
   tlist = sorted(glob.glob(dataPath+'tag_*.bin'))
   clist = sorted(glob.glob(dataPath+'chan_*.bin'))
-  tlist=tlist[1:]
-  clist=clist[1:]
-#  tlist = tlist[0]
-#  clist = clist[0]
-#  print tlist, clist
-  for (fTimes, fChans) in zip(tlist,clist):
-    heraldChan = 0
-    gate = 10e-9
-    CoincidenceWindow = 10e-9
-    thresh_low = 0
-    thresh_high = 100 # changed by shane to try to reduce error.  Original value 100
-    #print fTimes, fChans
-    single,coin = calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan)
-    pixel_num = int(fChans.strip('.bin')[-6:])
-    print 'pixel',pixel_num
-    #print fTimes, fChans
-    f = sys.stdout
-    np.savetxt(f, single,'%4d')
-    print
-    np.savetxt(f, coin,'%4d')
-    print
-    np.savetxt(fcoin,coin, '%4d')
-    np.savetxt(fsingle,single, '%4d')
-    fcoin.write('# %d\n'%pixel_num)
-  #raw_input('hit enter')
+  tlist = tlist[0:-1] # Omit most recent file in case it is still being used by data program.  It will be looked at on next call to glob
+  clist = clist[0:-1]
+  serial_only_ttag_Running = isActive(pid)
+  extraCheck = 0
+  while extraCheck < 3:
+    for (fTimes, fChans) in zip(tlist,clist):
+      pixel_num = int(fChans.strip('.bin')[-6:])
+      if pixel_num > cnt:
+        cnt = pixel_num
+        print pixel_num
+        print fTimes, fChans
+        print fTimes, fChans
+        while True:
+          try:
+            single,coin = calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan) # Try to get coin.  If can't, try again after 1s.  
+            break
+          except:
+            time.sleep(3*Tacq)
+        np.savetxt(sys.stdout, single,'%4d')
+        print
+        np.savetxt(sys.stdout, coin,'%4d')
+        print
+        np.savetxt(fcoin,coin, '%4d')
+        np.savetxt(fsingle,single, '%4d')
+        fcoin.write('# %d\n'%pixel_num)
+      else:
+        continue
+    time.sleep(4*Tacq)
+    tlist = sorted(glob.glob(dataPath+'tag_*.bin'))
+    clist = sorted(glob.glob(dataPath+'chan_*.bin'))
+    if extraCheck == 0:
+      tlist = tlist[0:-1] #Omit the most recent file if data program still running to eliminate any race condition problems
+      clist = clist[0:-1]
+    if not serial_only_ttag_Running:
+      extraCheck += 1
+    serial_only_ttag_Running = isActive(pid)
   fcoin.close()

@@ -50,7 +50,7 @@ p = Parameter.create(name='params', type='group', children=params)
 
 def setfilename():
   fileName = QtGui.QFileDialog.getOpenFileName(None, 
-     "Select of Type in Image Filename to Save", ".") ;
+     "Select of Type in Image Filename to Save", "/hdd/") ;
   print fileName
   p.param('filename').setValue(fileName)
 def setdirname():
@@ -60,12 +60,15 @@ def setdirname():
   p.param('dirname').setValue(dir)
 
 def start():
-  global dataPath, cnt, lastFile
+  global dataPath, cnt, lastFile, data, goodSettings
   if len(p['dirname'])==0:
     setdirname()
   if len(p['dirname'])==0:
     return
-  dataPath = str(p['dirname']) 
+  dataPath = str(p['dirname'])
+  data = np.loadtxt('/hdd/run88/coin_88.txt')
+  data.shape = (data.shape[0]/8,8,8)
+  goodSettings = np.fromfile('/hdd/run88/GoodSettings.txt', dtype = np.uint64) 
   update_thread = threading.Thread(None, update2)
   update_thread.start()
   p.param('start').setOpts(visible=False)
@@ -135,7 +138,7 @@ t.setParameters(p, showTop=False)
 if True:
   win = QtGui.QMainWindow()
   win.resize(1600,600)
-  win.setWindowTitle(sys.argv[0])
+  win.setWindowTitle('window title')
 
   glw = QtGui.QWidget()
   #glw = pg.GraphicsLayoutWidget()
@@ -150,7 +153,6 @@ if True:
   v.setCentralItem(view)
   img = pg.ImageItem(border='y')
   view.addItem(img)
-  #img.setTitle('test')
   
   v2 = pg.GraphicsView()
   l2 = pg.GraphicsLayout()
@@ -193,30 +195,17 @@ def getFiles(dataPath):
   return tlist[-1], clist[-1]  
 
 def update():
-    global p,img,cnt,updateTime, fps, logdata, fptr, buf,darks, flatField, seq_count,plot1,plot2, dataPath, lastFile
+    global p,img,cnt,updateTime, fps, logdata, fptr, buf,darks, flatField, seq_count,plot1,plot2, dataPath, lastFile, goodSettings, data
     Tacq = p.param('Tacq').value()
-    gate = p.param('Gate').value()
-    CoincidenceWindow = p.param('CoincidenceWindow').value()  # Coincidence window based on observed delay between row and column pulses.
-    heraldChan = 0
-    offset = cnt*8
-    thresh_low = 0
-    thresh_high = 100
-    print "Waiting for File"
-    while True:
-      fTimes, fChans = getFiles(dataPath)
-      times = np.fromfile(fTimes, dtype = np.uint64)
-      chans = np.fromfile(fChans, dtype = np.uint8)
-      if len(times) > 0 and len(times) == len(chans) and fTimes != lastFile:
-        break
-    if cnt < 0:
+
+    if cnt == 64 :
+      cnt = -1
       return
-    
-    print cnt, fTimes, len(times), lastFile, fChans, len(chans)
-    singles, coins = VE.calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan)
-    lastFile = fTimes
-    image = np.reshape(coins,(1,64))
+    offset = goodSettings[cnt]
+    image = data[offset,:,:]
     imageCorrected = image    
     displayimage = np.reshape(imageCorrected,(8,8))[::-1,::-1].T
+    print cnt, offset 
 
     level=(p.param('min').value(), p.param('max').value() )
     img.setImage(displayimage,autoLevels=False,levels=level)
@@ -247,9 +236,7 @@ def update():
       img.save(fname) 
       seq_count = seq_count + 1
     cnt += 1
-    app.processEvents()
     time.sleep(Tacq)
-    app.processEvents()
 
 def update2():
   global cnt

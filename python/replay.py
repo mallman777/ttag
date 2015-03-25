@@ -116,7 +116,7 @@ t.setParameters(p, showTop=False)
 if True:
   win = QtGui.QMainWindow()
   win.resize(1600,600)
-  win.setWindowTitle('window title')
+  win.setWindowTitle(sys.argv[0])
 
   glw = QtGui.QWidget()
   #glw = pg.GraphicsLayoutWidget()
@@ -177,6 +177,7 @@ def update():
     heraldChan = 0
     offset = cnt*8
     x = buf[offset:(offset+8),:]
+    print "cnt: %d"%cnt
     #print x
     #print x.shape
     if len(x)==0:

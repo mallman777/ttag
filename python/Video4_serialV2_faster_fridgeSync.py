@@ -12,11 +12,22 @@ import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
 import pyqtgraph.ptime as ptime
 app = QtGui.QApplication([])
-import VisExp_sn_v2 as VE
-import glob
 
+sys.path.append('/mnt/odrive/HPD/ShanePyStuff/classes')
+import ttag
+
+"""
+darksFile = "../../../../../Cooldown140521/20140522_150355Row12345678Darks.txt"
+flatFieldFile = "../../../../../Cooldown140521/20140522_150559Row12345678FlatField.txt"
+
+darks = np.loadtxt(darksFile)
+rawFlatField = np.loadtxt(flatFieldFile)
+darks = darks[:,1:]  #Get rid of first column which is the bias Voltages
+rawFlatField = rawFlatField[:,1:]
+flatField = rawFlatField-darks
+"""
 # Experimental Parameters
-Tacq = 1  # Measurement time in seconds
+Tacq = 10  # Measurement time in seconds
 
 timer = QtCore.QTimer()
 #timer.setInterval(int(Tacq*1000)+10)
@@ -25,14 +36,11 @@ timer.setSingleShot(True)
 
 params = [
   {'name':'start','type':'action','visible':True},
-  {'name':'stop','type':'action','visible':False},
   {'name':'Tacq', 'type':'float','value':Tacq,'limits':(0,100)},
   {'name':'min', 'type':'int','value':0},
   {'name':'max', 'type':'int','value':100},
   {'name':'filename','type':'str','value':''},
-  {'name':'dirname','type':'str','value':''},
   {'name':'Set File Name','type':'action'},
-  {'name':'Set Dir Name','type':'action'},
   {'name':'Logdata','type':'action','visible':True},
   {'name':'Stop Logging','type':'action','visible':False},
   {'name':'Save Sequence','type':'bool','value':False},
@@ -49,34 +57,27 @@ p = Parameter.create(name='params', type='group', children=params)
 #t.show()
 
 def setfilename():
-  fileName = QtGui.QFileDialog.getOpenFileName(None, 
+  fileName = QtGui.QFileDialog.getSaveFileName(None, 
      "Select of Type in Image Filename to Save", ".") ;
   print fileName
   p.param('filename').setValue(fileName)
-def setdirname():
-  dir = QtGui.QFileDialog.getExistingDirectory(None, 
-     "Select Directory", "/hdd/") ;
-  print dir
-  p.param('dirname').setValue(dir)
 
 def start():
-  global dataPath, cnt, lastFile
-  if len(p['dirname'])==0:
-    setdirname()
-  if len(p['dirname'])==0:
-    return
-  dataPath = str(p['dirname']) 
+  global dataPath, filepath
+  dirCnt = 40 
+  #dataPath = '/hdd/run41/'
+  while True:
+    dataPath = '/hdd/run%d/'%dirCnt
+    try:  
+      os.makedirs(dataPath)
+      break
+    except:
+      dirCnt += 1
+  filepath = dataPath
   update_thread = threading.Thread(None, update2)
   update_thread.start()
   p.param('start').setOpts(visible=False)
-  p.param('stop').setOpts(visible=True)
-  cnt = 0
-  lastFile = ''  
 
-def stop():
-  global cnt
-  cnt = -1
-  
 def startlog():
   global logdata,fptr
   if p.param('filename').value()=='':
@@ -99,10 +100,8 @@ def stoplog():
   logdata = False
  
 p.param('Set File Name').sigActivated.connect(setfilename)
-p.param('Set Dir Name').sigActivated.connect(setdirname)
 p.param('Logdata').sigActivated.connect(startlog)
 p.param('start').sigActivated.connect(start)
-p.param('stop').sigActivated.connect(stop)
 p.param('Stop Logging').sigActivated.connect(stoplog)
 
 def change(param, changes):
@@ -135,7 +134,7 @@ t.setParameters(p, showTop=False)
 if True:
   win = QtGui.QMainWindow()
   win.resize(1600,600)
-  win.setWindowTitle(sys.argv[0])
+  win.setWindowTitle('window title')
 
   glw = QtGui.QWidget()
   #glw = pg.GraphicsLayoutWidget()
@@ -150,7 +149,6 @@ if True:
   v.setCentralItem(view)
   img = pg.ImageItem(border='y')
   view.addItem(img)
-  #img.setTitle('test')
   
   v2 = pg.GraphicsView()
   l2 = pg.GraphicsLayout()
@@ -169,6 +167,35 @@ if True:
   l.addWidget(v2,0,2)
   win.show()
 
+
+###################
+
+#Run UQDinterface
+# is this needed anymore? SN, May 17, 2014
+#args = ['sudo', 'bash','launch.sh']
+#f = open('test','w')
+#process = subprocess.Popen(args,stdout=f)
+
+#print "The process ID is:"
+#print process.pid+1  # p.pid is the PID for the new shell.  p.pid is the PID for UQDinterface in the new shell
+#print process.pid+2
+#time.sleep(1)
+
+#ttnumber = int(raw_input("Time tagger to open:"))
+ttnumber = ttag.getfreebuffer()-1
+print "ttnumber: ", ttnumber
+buf = ttag.TTBuffer(ttnumber)  #Opens the buffer
+buf.tagsAsTime = False
+buf.start()
+time.sleep(1)
+
+print "Channels:", buf.channels
+print "Resolution:", buf.resolution
+print "Datapoints:", buf.datapoints
+print "Buffer size:", buf.size()
+
+ptr = 0
+
 updateTime = ptime.time()
 fps = 0
 logdata = False
@@ -185,53 +212,140 @@ def saveframe(filename, msg, t_exposure):
   f.write('\n')
   f.close()
 
-cnt = 0
+def getChart(x, y,cnt):
+  chartSize = 100
+  start = (cnt % chartSize) + 1
+  if (not hasattr(getChart, "chart")):
+    getChart.chart = np.empty([3, chartSize])
+  for i in range(3):
+    if i < 2:
+      getChart.chart[i, cnt % chartSize] = y[i]
+    else:
+      getChart.chart[i, cnt % chartSize] = x[0,1]
+  if start == chartSize:
+    return getChart.chart
+  else:
+    return np.hstack([getChart.chart[:,start:], getChart.chart[:,:start]])
 
-def getFiles(dataPath):
-  tlist = sorted(glob.glob(dataPath+'/tag_*.bin'))
-  clist = sorted(glob.glob(dataPath+'/chan_*.bin'))
-  return tlist[-1], clist[-1]  
+def printEff(x,y):
+  print "Herald Singles: ", y[0]
+  print "Signal Singles: ", y[1]
+  print "Coincidences: ", x[0,1]
+  efficiency_herald = x[0,1]/float(y[1])
+  efficiency_signal = x[0,1]/float(y[0])
+  efficiency_sum = x[0,1]/(0.5*(y[0] + y[1]))
+  efficiency_geo = x[0,1]/((y[0]*y[1])**0.5)
+  print "Efficiency_herald: ", efficiency_herald
+  print "Efficiency_signal: ", efficiency_signal
+  print "Efficiency_sum: ", efficiency_sum
+  print "Efficiency_geo: ", efficiency_geo
+  print "\n"
+
+def getCoincidences(fTimes, fChans, gate, radius, heraldChan):
+  coincidences = np.reshape(np.zeros(64), (8,-1))
+  times = np.fromfile(fTimes, dtype = np.uint64)
+  chans = np.fromfile(fChans, dtype = np.uint8)
+  indices = np.arange(len(times))
+  indices = indices[::-1]
+  for idx in indices:
+    if (chans[idx] == heraldChan):
+      i = idx -1
+      while (i >= 0) and (times[i] + gate >= times[idx]):
+        coincidenceFound = False
+        j = i - 1
+        while (j >= 0):
+          if (chans[i] != chans[j]) and (chans[j] != heraldChan) and (times[j] + radius >= times[i]):
+            coincidenceFound = True
+            coincidences[i,j] += 1
+            coincidences[j,i] += 1
+            j -= 1
+          elif (not coincidenceFound and times[j] + radius < times[i]):
+            coincidences[i,idx] += 1
+            coincidences[idx,i] += 1
+            break
+          else:
+            break
+        i -= 1
+  return coincidences*buf.resolution
+            
+cnt = 0
+dataPath = "/hdd/"
+
+import serial
+serialport = serial.Serial('/dev/ttyUSB1',38400,timeout=0.5)
+
+def waitforPC():
+    print 'Waiting for msg from PC'
+    msgin = ''
+    while (msgin == ''):
+        msgin = serialport.read(80);
+	app.processEvents() # process events on the GUI
+    #print 'msg from PC: %s' %msgin 
+    return msgin
+def sendtoPC(count):
+    print 'Sending photon num: %d'%count
+    serialport.write('%05d'%count)
+
 
 def update():
-    global p,img,cnt,updateTime, fps, logdata, fptr, buf,darks, flatField, seq_count,plot1,plot2, dataPath, lastFile
+    global p,img,cnt,updateTime, fps, logdata, fptr, buf,darks, flatField, seq_count,plot1,plot2, dataPath
+    #  talk to PC and wait for data first
+    to = []
+    to.append(time.time())
+    msgin = waitforPC()
+    to.append(time.time())
+    cnt = int(msgin)
+    if cnt == -1:
+      return
+    app.processEvents()
     Tacq = p.param('Tacq').value()
+    start = buf.datapoints
+    time.sleep(Tacq)
+    stop = buf.datapoints
+    tup = buf[-(stop - start):]  # a tuple of chan tags, and time tags
+    sendtoPC(cnt)
+    to.append(time.time())
+    #  try to process and plot data while PC is setting up next frame
     gate = p.param('Gate').value()
     CoincidenceWindow = p.param('CoincidenceWindow').value()  # Coincidence window based on observed delay between row and column pulses.
     heraldChan = 0
-    offset = cnt*8
-    thresh_low = 0
-    thresh_high = 100
-    print "Waiting for File"
-    while True:
-      fTimes, fChans = getFiles(dataPath)
-      times = np.fromfile(fTimes, dtype = np.uint64)
-      chans = np.fromfile(fChans, dtype = np.uint8)
-      if len(times) > 0 and len(times) == len(chans) and fTimes != lastFile:
-        break
-    if cnt < 0:
-      return
-    
-    print cnt, fTimes, len(times), lastFile, fChans, len(chans)
-    singles, coins = VE.calcCoin(fTimes, fChans, thresh_low, thresh_high, heraldChan)
-    lastFile = fTimes
-    image = np.reshape(coins,(1,64))
+    fnameTags = 'tag_%06d.bin'%cnt
+    fnameChans = 'chan_%06d.bin'%cnt
+    fTags = open(filepath+fnameTags,'wb')
+    fChans = open(filepath+fnameChans,'wb')
+    x = buf.coincidences(Tacq, CoincidenceWindow, gate = gate, heraldChan = heraldChan)
+#    x = buf.coincidences(Tacq, CoincidenceWindow)
+    y = buf.singles(Tacq)
+    chans = tup[0]  #Single byte unsigned integer
+    tags = tup[1] #8 byte unsigned integer
+    chans.tofile(fChans)
+    tags.tofile(fTags)
+    fChans.close()
+    fTags.close()
+    chart = getChart(x,y,cnt)
+    printEff(x,y)
+    image = np.reshape(x[0:8,8::],(1,64))
     imageCorrected = image    
     displayimage = np.reshape(imageCorrected,(8,8))[::-1,::-1].T
 
+
     level=(p.param('min').value(), p.param('max').value() )
     img.setImage(displayimage,autoLevels=False,levels=level)
-
     if p.param('Plot row').value()>0:
       row = p.param('Plot row').value()-1
       idx = np.arange(8) + row*8
 #      curve1.setData(image[0,idx])
       curve1.setData(imageCorrected[0,idx]+0.1)
+    else:
+      curve1.setData(chart[0,:])
     plot1.setLogMode(x = False, y = p.param("LogScaleRow?").value())
       
     if p.param('Plot col').value()>0:
       col = p.param('Plot col').value()-1
       idx = np.arange(8)*8 + col 
       curve2.setData(imageCorrected[0,idx]+0.1)
+    else:
+      curve2.setData(chart[2,:])
     plot2.setLogMode(x = False, y = p.param("LogScaleCol?").value())
       
     if logdata==True:
@@ -246,10 +360,8 @@ def update():
       fname = sequencepath + '/' + basename + '%05d.png'%seq_count
       img.save(fname) 
       seq_count = seq_count + 1
-    cnt += 1
-    app.processEvents()
-    time.sleep(Tacq)
-    app.processEvents()
+    to.append(time.time())
+    print np.array(to).diff()
 
 def update2():
   global cnt
@@ -257,14 +369,18 @@ def update2():
     update() 
     if cnt < 0:
       print "calling cleanup"
-      p.param('stop').setOpts(visible=False)
       p.param('start').setOpts(visible=True)
       return
 
 def cleanUp():
     #p.terminate()
+    buf.stop()
     print "Cleaning"
-    print "but nothing to clean"
+    #for i in range(100):
+     # ttag.deletebuffer(i)
+#    os.kill(p.pid+2,signal.SIGKILL)
+    #os.kill(p.pid+2,signal.SIGINT)
+#    os.fsync(f)
 
 
 atexit.register(cleanUp)
