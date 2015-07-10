@@ -113,7 +113,7 @@ if __name__ == "__main__":
     print "You forgot to include dirnum, and inttime, as input parameters"
     print "Goodbye"
     sys.exit()
-  dataPath = '/hdd/2015_03_12/run%02d/'%dirnum
+  dataPath = '/hdd/2015_03_19/run%02d/'%dirnum
   format = '%Y_%m_%d'
 #  dataPath = '/hdd/%s/run%d/'%(datetime.datetime.today().strftime(format),dirnum)
 

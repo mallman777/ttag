@@ -322,8 +322,8 @@ def update():
     #print 'imageCorrected.shape',imageCorrected.shape
     maxrow = maxidx/8
     maxcol = maxidx%8
-    p['Plot col']=maxcol + 1
-    p['Plot row']=maxrow + 1
+    #p['Plot col']=maxcol + 1
+    #p['Plot row']=maxrow + 1
     err = (1.* imageCorrected[0,maxidx])/imageCorrected.sum()
     if p['Err stat?']:
     #if True:

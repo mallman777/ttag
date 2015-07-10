@@ -1,6 +1,5 @@
 import ttag
-buf = ttag.TTBuffer(0)
+bufNum = ttag.getfreebuffer() - 1 
+buf = ttag.TTBuffer(bufNum)
 buf.stop()
-for i in range(10):
-	ttag.deletebuffer(i)
 

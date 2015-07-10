@@ -3,10 +3,10 @@
 #cXv=Channel X threshold voltage
 #cXe=Channel X edge (1=rising,0=falling)
 
-c1v=0.2
+c1v=0.35
 c1e=1
 
-c2v=0.2
+c2v=0.35
 c2e=1
 
 c3v=0.35
@@ -27,29 +27,29 @@ c7e=1
 c8v=0.35
 c8e=1
 
-c9v=-0.35
-c9e=0
+c9v=0.35
+c9e=1
 
-c10v=-0.35
-c10e=0
+c10v=0.35
+c10e=1
 
-c11v=-0.35
-c11e=0
+c11v=0.35
+c11e=1
 
-c12v=-0.35
-c12e=0
+c12v=0.35
+c12e=1
 
-c13v=-0.35
-c13e=0
+c13v=0.35
+c13e=1
 
-c14v=-0.35
-c14e=0
+c14v=0.35
+c14e=1
 
-c15v=-0.35
-c15e=0
+c15v=0.35
+c15e=1
 
-c16v=-0.35
-c16e=0
+c16v=0.35
+c16e=1
 
 
 #Whether or not to use the 10MHz reference 1=use 10MHz reference, 0=Don't (default)

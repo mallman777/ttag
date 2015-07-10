@@ -58,19 +58,22 @@ int arrSum (int arr[], int arrSize){
     return sum;
 }
 
+
+
+
 /*
 Function that histograms data with single-interger bin size, so no need for division.
 */
 
-uint64_t * myHist(uint64_t * hist, uint64_t * arr, uint64_t * range){
-  uint64_t binNum = (range[1] - range[0]) + 1;
+uint64_t * getHist(uint64_t * hist, int64_t * arr, int64_t * range, uint64_t size){
+  int64_t binNum = (range[1] - range[0]);
   uint64_t binIndex;
-  for (uint32_t i = 0; arr[i] >= range[0] && arr[i] <= range[1]; ++i){
-    binIndex = arr[i] - range[0];
-    hist[binIndex]++;
-  }
-  for (uint32_t i = 0; i != binNum; ++i){
-    hist[binNum + i] = range[0] + i;
+  //for (uint32_t i = 0; arr[i] >= range[0] && arr[i] < range[1]; ++i){
+  for (uint32_t i = 0; i != size; ++i){
+    if (arr[i] >= range[0] && arr[i] <= range[1]){
+      binIndex = arr[i] - range[0];
+      hist[binIndex]++;
+     }
   }
   return hist;
 }
