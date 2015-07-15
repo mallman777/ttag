@@ -306,12 +306,9 @@ int main(int argc, char** argv) {
 				err = tagger.ReadErrorFlags();
 				if (err) {
 					cout << ">> ERR: " << tagger.GetErrorText(err) << "   \n";
-                                        runAcquisition = 0;   // added by shane 
-                                        break;  // added by shane
 				}
 
 				tagcount = tagger.ReadTags(channelarray,tagarray);
-                                cout << " >> tagcount: " << tagcount << endl;  //added by shane
 				tt_writeindex(buffer)+=tagcount;
 				for (int i=0; i<tagcount;i++) {
 					if (last > tagarray[i]+tag_offset) {
