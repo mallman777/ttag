@@ -302,8 +302,8 @@ int main(int argc, char** argv) {
 
 			tagger.StartTimetags();
 			while (tt_running(buffer) && runAcquisition) {
-                                cout << " >> running loop                           \n";
-				err = tagger.ReadErrorFlags();
+                                cout << " >> running loop.  New HCR version         \n";
+                                err = tagger.ReadErrorFlags();
 				if (err) {
 					cout << ">> ERR: " << tagger.GetErrorText(err) << "   \n";
                                         runAcquisition = 0;   // added by shane.  Testing HCR branch 
@@ -314,32 +314,9 @@ int main(int argc, char** argv) {
                                 cout << " >> tagcount: " << tagcount << endl;  //added by shane
 				tt_writeindex(buffer)+=tagcount;
 				for (int i=0; i<tagcount;i++) {
-					if (last > tagarray[i]+tag_offset) {
-						tag_offset = 100000000+ last - tagarray[i];
-            cout << "last: " << last << endl;
-            cout << "tagarray[i-1]: " << tagarray[i-1] << " channelarray[i-1]: " << (int)channelarray[i-1] << endl;
-            cout << "tagarray[i]: " << tagarray[i] << " channelarray[i]: " << (int)channelarray[i] << endl;
-            cout << "tagarray[i+1]: " << tagarray[i+1] << " channelarray[i+1]: " << (int)channelarray[i+1] << endl;
-            cout << "tag_offset: " << tag_offset << endl;
-						cout << ">> WARNING: Offset tag detected." << endl;
-					}
-					if (channelarray[i]==30) {
-						printf(">> OVERFLOW %i                          \n",overflownum++);
-					} else {
-						tt_tag(buffer,tt_datanum(buffer))  = tagarray[i]+tag_offset;
-						tt_channel(buffer,tt_datanum(buffer)) = channelarray[i] -1;
-						tt_datanum(buffer)++;
-					}
-					last = tagarray[i]+tag_offset;
-        //(i > 0 && i < tagcount -1){
-          if (0 == 1) {
-            if(tagarray[i] - tagarray[i-1] < 500 && channelarray[i] != channelarray[i-1]){
-              cout << "tagarray[i-1]: " << tagarray[i-1] << " channelarray[i-1]: " << (int)channelarray[i-1] << endl;
-              cout << (tagarray[i] - tagarray[i-1])*156.25e-12 << endl;
-              cout << "tagarray[i]: " << tagarray[i] << " channelarray[i]: " << (int)channelarray[i] << endl;
-              cout << "tagarray[i+1]: " << tagarray[i+1] << " channelarray[i+1]: " << (int)channelarray[i+1] << endl;
-             }
-          }
+				  tt_tag(buffer,tt_datanum(buffer))  = tagarray[i]+tag_offset;
+				  tt_channel(buffer,tt_datanum(buffer)) = channelarray[i] -1;
+				  tt_datanum(buffer)++;
 				}
 				tt_writeindex(buffer) = tt_datanum(buffer);
 				printf(" Reading: %llu                       \r",tt_datapoints(buffer));
