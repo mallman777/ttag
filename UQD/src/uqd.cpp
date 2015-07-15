@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
 				err = tagger.ReadErrorFlags();
 				if (err) {
 					cout << ">> ERR: " << tagger.GetErrorText(err) << "   \n";
-                                        runAcquisition = 0;   // added by shane 
+                                        runAcquisition = 0;   // added by shane.  Testing HCR branch 
                                         break;  // added by shane
 				}
 
