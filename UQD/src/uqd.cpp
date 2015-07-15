@@ -302,12 +302,16 @@ int main(int argc, char** argv) {
 
 			tagger.StartTimetags();
 			while (tt_running(buffer) && runAcquisition) {
+                                cout << " >> running loop                           \n";
 				err = tagger.ReadErrorFlags();
 				if (err) {
-					cout << ">> ERR: " << tagger.GetErrorText(err);
+					cout << ">> ERR: " << tagger.GetErrorText(err) << "   \n";
+                                        runAcquisition = 0;   // added by shane 
+                                        break;  // added by shane
 				}
 
 				tagcount = tagger.ReadTags(channelarray,tagarray);
+                                cout << " >> tagcount: " << tagcount << endl;  //added by shane
 				tt_writeindex(buffer)+=tagcount;
 				for (int i=0; i<tagcount;i++) {
 					if (last > tagarray[i]+tag_offset) {
@@ -341,7 +345,7 @@ int main(int argc, char** argv) {
 				printf(" Reading: %llu                       \r",tt_datapoints(buffer));
 			}
 			tagger.StopTimetags();
-			printf("> Stopped Acquisition                              \n");
+			printf("> Stopped Acquisition                                  \n");
 		}
 
 		printf("> Cleaning Up...                    \n" );
